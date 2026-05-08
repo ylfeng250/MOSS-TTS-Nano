@@ -124,7 +124,9 @@ We recommend a clean Python environment first, then installing the project in ed
 The examples below intentionally keep arguments minimal and rely on the repository defaults.
 By default, the code loads `OpenMOSS-Team/MOSS-TTS-Nano` and `OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano`.
 
-#### Using Conda
+**Requirements:** Python >= 3.10 (3.12 recommended), macOS arm64 / Linux x86_64.
+
+#### Using Conda (recommended)
 
 ```bash
 conda create -n moss-tts-nano python=3.12 -y
@@ -133,21 +135,50 @@ conda activate moss-tts-nano
 git clone https://github.com/OpenMOSS/MOSS-TTS-Nano.git
 cd MOSS-TTS-Nano
 
-pip install -r requirements.txt
+# Step 1: install openfst and pynini from conda-forge first
+conda install -c conda-forge openfst pynini=2.1.6.post1 -y
+
+# Step 2: install WeTextProcessing without letting pip try to build pynini
+pip install WeTextProcessing==1.0.4.1 --no-deps
+
+# Step 3: install the remaining dependencies
+pip install -r requirements.txt --no-deps
+
+# Step 4: install the project itself
 pip install -e .
 ```
 
-If `WeTextProcessing` or `pynini` fails to install from `requirements.txt`, install `pynini` first in the same environment, then install `WeTextProcessing`, remove `WeTextProcessing` from `requirements.txt`, and finally rerun `pip install -r requirements.txt`.
-
-With Conda, we recommend:
+To verify your installation, run:
 
 ```bash
-conda install -c conda-forge pynini=2.1.6.post1 -y
-pip install git+https://github.com/WhizZest/WeTextProcessing.git
-pip install -r requirements.txt
+python -c "import torch; import transformers; import onnxruntime; import itn; import tn; import moss_tts_nano; print('All imports OK')"
 ```
 
+#### Troubleshooting
+
+| Error | Cause | Solution |
+|---|---|---|
+| `No matching distribution found for onnxruntime>=1.20.0` | Your Python version is < 3.10 | Create a conda env with Python 3.10+: `conda create -n moss-tts-nano python=3.12` |
+| `ERROR: Package 'moss-tts-nano' requires a different Python: 3.9.x not in '>=3.10'` | System Python is too old | Use Conda (see above) or upgrade your system Python to 3.10+ |
+| `fatal error: 'fst/util.h' file not found` | `pynini` needs `openfst` C++ headers but they are missing | Install openfst via Conda first: `conda install -c conda-forge openfst pynini` |
+| `error: no member named 'StringJoin' in namespace 'fst'` | `pynini 2.1.6` is incompatible with `openfst 1.8.4` (API renamed `StringJoin` → `StrJoin`) | Downgrade pynini to `2.1.6.post1`: `conda install -c conda-forge pynini=2.1.6.post1` |
+| `ModuleNotFoundError: No module named 'WeTextProcessing'` | The package installs as `itn` / `tn`, not `WeTextProcessing` | This is expected — the code imports `itn` and `tn`, not `WeTextProcessing` |
+| `pip` tries to rebuild `pynini` from source and fails | `WeTextProcessing` pins `pynini==2.1.6` which conflicts with your installed version | Use `--no-deps` when installing WeTextProcessing and requirements (see step 2–3 above) |
+| `RuntimeError: Couldn't find appropriate backend to handle uri ... and format None` from `torchaudio.load()` | `soundfile` depends on `cffi` (`_cffi_backend`), which is missing — torchaudio ends up with zero registered backends | `pip install cffi`, then verify with `python -c "import torchaudio; print(torchaudio.list_audio_backends())"` |
+| `ModuleNotFoundError: No module named 'importlib_resources'` during WeTextProcessing preload | `importlib_resources` was installed to the wrong conda environment (e.g. base env instead of `moss-tts-nano`) | Activate the correct env first, then `pip install importlib_resources`; verify the install location with `pip show importlib_resources` |
+
 If you are not using Conda, make sure you download a `pynini` wheel that matches your Python version and platform before installing `WeTextProcessing`. For a community-tested example, see [Issue #6](https://github.com/OpenMOSS/MOSS-TTS-Nano/issues/6).
+
+#### GPU / CUDA ONNX Runtime (optional)
+
+By default, ONNX inference runs on CPU. If you have an NVIDIA GPU, you can switch to CUDA:
+
+```bash
+pip uninstall -y onnxruntime
+pip install "onnxruntime-gpu>=1.20.0"
+```
+
+Then use `--execution-provider cuda` with any ONNX command.
 
 ### Voice Clone with `infer.py`
 
@@ -187,14 +218,7 @@ This version is designed to be more deployment-friendly while keeping the same c
 
 The ONNX entrypoints are `infer_onnx.py`, `app_onnx.py`, and the packaged CLI with `--backend onnx`.
 
-By default, all ONNX commands use `--execution-provider cpu`, so existing commands keep the same CPU behavior. If you have an NVIDIA GPU and a compatible `onnxruntime-gpu` installation, you can opt in to CUDA with `--execution-provider cuda`.
-
-To prepare a CUDA ONNX Runtime environment, replace the CPU ONNX Runtime wheel with the GPU wheel:
-
-```bash
-pip uninstall -y onnxruntime
-pip install "onnxruntime-gpu>=1.20.0"
-```
+By default, all ONNX commands use `--execution-provider cpu`. If you have an NVIDIA GPU, see the [GPU / CUDA ONNX Runtime](#gpu--cuda-onnx-runtime-optional) section in Environment Setup above.
 
 If `--model-dir` is omitted, the script automatically checks `./models`. When the model files are missing, it downloads them on first run from:
 

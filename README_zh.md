@@ -119,7 +119,7 @@ MOSS-TTS-Nano 目前支持 **20 种语言**：
 
 我们建议先创建一个干净的 Python 环境，然后以可编辑模式安装项目，使得 `moss-tts-nano` 命令在本地可用。下面的示例故意保持参数最少，依赖仓库默认设置。默认情况下，代码加载 `OpenMOSS-Team/MOSS-TTS-Nano` 和 `OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano`。
 
-#### 使用 Conda
+#### 使用 Conda（推荐）
 
 ```bash
 conda create -n moss-tts-nano python=3.12 -y
@@ -128,21 +128,50 @@ conda activate moss-tts-nano
 git clone https://github.com/OpenMOSS/MOSS-TTS-Nano.git
 cd MOSS-TTS-Nano
 
-pip install -r requirements.txt
+# 第一步：先从 conda-forge 安装 openfst 和 pynini
+conda install -c conda-forge openfst pynini=2.1.6.post1 -y
+
+# 第二步：安装 WeTextProcessing，不让 pip 尝试重新编译 pynini
+pip install WeTextProcessing==1.0.4.1 --no-deps
+
+# 第三步：安装其余依赖
+pip install -r requirements.txt --no-deps
+
+# 第四步：安装项目本身
 pip install -e .
 ```
 
-如果 `WeTextProcessing` 或 `pynini` 无法从 `requirements.txt` 安装，请先在同一环境中安装 `pynini`，再安装 `WeTextProcessing`，然后从 `requirements.txt` 中移除 `WeTextProcessing`，最后重新执行 `pip install -r requirements.txt`。
-
-推荐优先使用 Conda：
+验证安装：
 
 ```bash
-conda install -c conda-forge pynini=2.1.6.post1 -y
-pip install git+https://github.com/WhizZest/WeTextProcessing.git
-pip install -r requirements.txt
+python -c "import torch; import transformers; import onnxruntime; import itn; import tn; import moss_tts_nano; print('全部导入成功')"
 ```
 
+#### 常见问题
+
+| 报错信息 | 原因 | 解决方法 |
+|---|---|---|
+| `No matching distribution found for onnxruntime>=1.20.0` | Python 版本 < 3.10 | 创建 Python 3.10+ 的 conda 环境：`conda create -n moss-tts-nano python=3.12` |
+| `ERROR: Package 'moss-tts-nano' requires a different Python: 3.9.x not in '>=3.10'` | 系统 Python 版本过低 | 使用 Conda（见上文）或将系统 Python 升级到 3.10+ |
+| `fatal error: 'fst/util.h' file not found` | `pynini` 需要 `openfst` C++ 头文件但未找到 | 先通过 Conda 安装 openfst：`conda install -c conda-forge openfst pynini` |
+| `error: no member named 'StringJoin' in namespace 'fst'` | `pynini 2.1.6` 与 `openfst 1.8.4` 不兼容（API 已将 `StringJoin` 改名为 `StrJoin`） | 降级 pynini 至 `2.1.6.post1`：`conda install -c conda-forge pynini=2.1.6.post1` |
+| `ModuleNotFoundError: No module named 'WeTextProcessing'` | 该包安装后的模块名为 `itn` / `tn`，而非 `WeTextProcessing` | 这是正常现象——代码中导入的是 `itn` 和 `tn`，不是 `WeTextProcessing` |
+| `pip` 尝试从源码重新编译 `pynini` 并失败 | `WeTextProcessing` 锁定 `pynini==2.1.6`，与已安装版本冲突 | 安装 WeTextProcessing 和 requirements 时使用 `--no-deps`（见上文第 2–3 步） |
+| `RuntimeError: Couldn't find appropriate backend to handle uri ... and format None`（来自 `torchaudio.load()`） | `soundfile` 依赖 `cffi`（`_cffi_backend`）未安装，导致 torchaudio 无任何已注册后端 | `pip install cffi`，然后验证：`python -c "import torchaudio; print(torchaudio.list_audio_backends())"` |
+| `ModuleNotFoundError: No module named 'importlib_resources'`（WeTextProcessing 预加载时） | `importlib_resources` 被安装到了错误的 conda 环境（如 base 环境而非 `moss-tts-nano`） | 先激活正确的环境，再 `pip install importlib_resources`；用 `pip show importlib_resources` 确认安装位置 |
+
 如果不使用 Conda，请先准备与当前 Python 版本和平台匹配的 `pynini` wheel，再安装 `WeTextProcessing`。可参考 [Issue #6](https://github.com/OpenMOSS/MOSS-TTS-Nano/issues/6) 中给出的安装示例。
+
+#### GPU / CUDA ONNX Runtime（可选）
+
+默认情况下，ONNX 推理使用 CPU。如果你有 NVIDIA GPU，可以切换到 CUDA：
+
+```bash
+pip uninstall -y onnxruntime
+pip install "onnxruntime-gpu>=1.20.0"
+```
+
+然后在任何 ONNX 命令中使用 `--execution-provider cuda`。
 
 ### 使用 `infer.py` 进行语音克隆
 
