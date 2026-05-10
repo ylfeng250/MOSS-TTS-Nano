@@ -64,7 +64,7 @@ class OnnxNanoTTSServiceAdapter:
         self.execution_provider = self.runtime.execution_provider
         self.device = _OnnxDeviceInfo(self.execution_provider)
         self.dtype = "float32"
-        self.attn_implementation = "fixed"
+        self.attn_implementation = "full"
         self._onnxruntime_implementation = f"onnxruntime_{self.execution_provider}"
         self._checkpoint_global_attn_implementation = self._onnxruntime_implementation
         self._checkpoint_local_attn_implementation = self._onnxruntime_implementation
@@ -497,29 +497,29 @@ def _render_index_html_onnx(
         warmup_status=warmup_status,
         text_normalization_status=text_normalization_status,
     )
-    html = html.replace("MOSS-TTS-Nano Demo", "MOSS-TTS-Nano ONNX Demo")
+    html = html.replace("MOSS-TTS-Nano 语音合成演示", "MOSS-TTS-Nano ONNX 语音合成演示")
     html = html.replace(
-        '<label for="attn-implementation">Attention Backend</label>\n'
+        '<label for="attn-implementation">注意力后端</label>\n'
         '              <select id="attn-implementation">\n'
         '                <option value="model_default">model_default</option>\n'
         '                <option value="sdpa">sdpa</option>\n'
         '                <option value="eager">eager</option>\n'
         '              </select>',
-        '<label for="attn-implementation">Sampling Mode</label>\n'
+        '<label for="attn-implementation">采样模式</label>\n'
         '              <select id="attn-implementation">\n'
         '                <option value="fixed">fixed</option>\n'
         '                <option value="full">full</option>\n'
         '                <option value="greedy">greedy</option>\n'
         '              </select>\n'
-        '              <div id="onnx-sampling-mode-note" class="meta">fixed uses the baked ONNX sampling constants.</div>',
+        '              <div id="onnx-sampling-mode-note" class="meta">fixed 使用内置的 ONNX 采样常量。</div>',
     )
     html = html.replace(
-        '<label><input id="do-sample" type="checkbox" checked> Do Sample</label>',
-        '<label><input id="do-sample" type="checkbox" checked disabled> Do Sample (derived from Sampling Mode)</label>',
+        '<label><input id="do-sample" type="checkbox" checked> 启用采样</label>',
+        '<label><input id="do-sample" type="checkbox" checked disabled> 启用采样（由采样模式决定）</label>',
     )
     html = html.replace(
-        'This app is CPU-only. CPU Threads maps to torch.set_num_threads for that request.',
-        'This ONNX app uses the server-start execution provider. CPU Threads selects the cached ONNX runtime instance for that request.',
+        '本应用仅使用 CPU。CPU 线程数对应 torch.set_num_threads 设置。',
+        '此 ONNX 应用使用启动时指定的执行提供者。CPU 线程数选择对应缓存的 ONNX Runtime 实例。',
     )
     html = html.replace(
         '</style>',
@@ -563,11 +563,11 @@ def _render_index_html_onnx(
         '      }\n'
         '      if (onnxSamplingModeNote) {\n'
         '        if (mode === "full") {\n'
-        '          onnxSamplingModeNote.textContent = "full uses the current page sampling hyperparameters.";\n'
+        '          onnxSamplingModeNote.textContent = "full 使用当前页面的采样超参数。";\n'
         '        } else if (mode === "fixed") {\n'
-        '          onnxSamplingModeNote.textContent = "fixed uses the baked ONNX sampling constants and ignores the hyperparameter inputs below.";\n'
+        '          onnxSamplingModeNote.textContent = "fixed 使用内置的 ONNX 采样常量，忽略下方的超参数输入。";\n'
         '        } else {\n'
-        '          onnxSamplingModeNote.textContent = "greedy disables sampling and ignores the hyperparameter inputs below.";\n'
+        '          onnxSamplingModeNote.textContent = "greedy 禁用采样，忽略下方的超参数输入。";\n'
         '        }\n'
         '      }\n'
         '    }\n'
@@ -581,7 +581,7 @@ def _render_index_html_onnx(
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="MOSS-TTS-Nano ONNX web demo")
+    parser = argparse.ArgumentParser(description="MOSS-TTS-Nano ONNX 网页演示")
     parser.add_argument(
         "--model-dir",
         default=None,
@@ -645,7 +645,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         logging.warning("--share is ignored by the FastAPI-based ONNX app.")
 
     app = legacy_app._build_app(runtime, warmup_manager, text_normalizer_manager, root_path)
-    app.title = "MOSS-TTS-Nano ONNX Demo"
+    app.title = "MOSS-TTS-Nano ONNX 语音合成演示"
     uvicorn.run(
         app,
         host=args.host,
